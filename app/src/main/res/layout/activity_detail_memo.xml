@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context=".DetailMemoActivity">
+
+    <TextView
+        android:textAppearance="@style/TextAppearance.AppCompat.Large"
+        android:id="@+id/selected_location"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="지정된 위치" />
+    <TextView
+        android:textAppearance="@style/TextAppearance.AppCompat.Large"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="오늘 날짜"
+        android:id="@+id/today"/>
+    <View
+        android:background="@color/black"
+        android:layout_width="match_parent"
+        android:layout_height="3dp" />
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:id="@+id/camera_image"
+        />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        >
+        <Button
+            android:text="사진찍기"
+            android:onClick="onClick"
+            android:layout_width="match_parent"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:id="@+id/capture_image"/>
+    </LinearLayout>
+    <View
+        android:background="@color/black"
+        android:layout_width="match_parent"
+        android:layout_height="3dp" />
+    <EditText
+        android:layout_weight="1"
+        android:id="@+id/write_memo"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:hint="메모입력"
+        android:gravity="top"/>
+    <Button
+        android:onClick="onClick"
+        android:id="@+id/save_memo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="메모등록"/>
+</LinearLayout>
