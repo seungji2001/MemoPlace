@@ -23,6 +23,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -47,7 +48,6 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.sql.Array;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -63,9 +63,14 @@ public class MakeMemoActivity extends AppCompatActivity {
     public Button find_location_btn;
     public Button button;
     public ListView list_view;
-    public  String today_str;
+    public ListView list_view_search;
+    public String today_str;
     public List<String> locationList;
+    public List<String> searchPlaces;
+    public ScrollView scrollView2;
+    public ScrollView scrollView3;
     ArrayAdapter<String> adapter;
+    ArrayAdapter<String> adapter_search;
 
     FusedLocationProviderClient flpClient;
     GoogleMap gm;
@@ -78,12 +83,14 @@ public class MakeMemoActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_make_memo);
 
-        Log.d("TAG","첫 오픈");
+        Log.d("TAG", "첫 오픈");
         today = findViewById(R.id.show_today_date);
         start_location = findViewById(R.id.start_location);
         list_view = findViewById(R.id.list_view);
+        list_view_search = findViewById(R.id.list_view_search);
         select_location = findViewById(R.id.select_location);
-
+        scrollView2 = findViewById(R.id.scrollView2);
+        scrollView3 = findViewById(R.id.scrollView3);
         checkPermission();
 
         Intent intent = getIntent();
@@ -96,15 +103,15 @@ public class MakeMemoActivity extends AppCompatActivity {
 
         locationList = new ArrayList<String>();
         //초기 locationnList 지정
-        String filename = today_str.replaceAll(" / ","") + ".txt";
+        String filename = today_str.replaceAll(" / ", "") + ".txt";
         String path = getFilesDir().getPath() + "/" + filename;
-        File readFile  = new File(path);
-        if(readFile.exists()) {
+        File readFile = new File(path);
+        if (readFile.exists()) {
             //해당파일이 존재하는 경우 파일을 읽어서
-             Log.d("TAG","file exist");
+            Log.d("TAG", "file exist");
             FileReader fileReader = null;
             try {
-                Log.d("TAG","file exist");
+                Log.d("TAG", "file exist");
                 fileReader = new FileReader(readFile);
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
@@ -128,28 +135,25 @@ public class MakeMemoActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
         }
-//        for(String location : locationList){
-//
-//        }
-//        ArrayList<String> phoneData = new ArrayList<>();
-//        for(int i = 0; i<100; i++){
-//            phoneData.add("010-1111"+i);
-//        }
-        adapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1,locationList);
+
+        searchPlaces = new ArrayList<>();
+        adapter_search = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, searchPlaces);
+        adapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, locationList);
 
         list_view.setAdapter(adapter);
-
+        scrollView3.setVisibility(View.GONE);
+        list_view_search.setVisibility(View.GONE);
         list_view.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Log.d("TAG",String.valueOf(view));
-                Log.d("TAG",String.valueOf(position));
-                Log.d("TAG",String.valueOf(id));
+                Log.d("TAG", String.valueOf(view));
+                Log.d("TAG", String.valueOf(position));
+                Log.d("TAG", String.valueOf(id));
 
-                String loc = (String)parent.getAdapter().getItem(position);
-                Intent intent = new Intent(getApplicationContext(),DetailMemoActivity.class);
-                intent.putExtra("today",today_str);
-                intent.putExtra("select_location",loc);
+                String loc = (String) parent.getAdapter().getItem(position);
+                Intent intent = new Intent(getApplicationContext(), DetailMemoActivity.class);
+                intent.putExtra("today", today_str);
+                intent.putExtra("select_location", loc);
                 startActivityForResult(intent, MAKE_MEMO);
             }
         });
@@ -158,19 +162,19 @@ public class MakeMemoActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if(requestCode == MAKE_MEMO && resultCode == 103){
+        if (requestCode == MAKE_MEMO && resultCode == 103) {
             //memoLocation을 받았을 경우
             String memoLocation = data.getStringExtra("memoLocation");
-            Log.d("TAG","clicked" + memoLocation);
+            Log.d("TAG", "clicked" + memoLocation);
             locationList.add(memoLocation);
 
             //파일에도 추가된 내용 추가하기
-            String filename = today_str.replaceAll(" / ","") + ".txt";
+            String filename = today_str.replaceAll(" / ", "") + ".txt";
             String path = getFilesDir().getPath() + "/" + filename;
-            File readFile  = new File(path);
-            if(readFile.exists()){
+            File readFile = new File(path);
+            if (readFile.exists()) {
                 //이미 파일이 존재하는 경우 읽어들인 후 추가로 작성 만들지 않아도 된다
-                Log.d("TAG","exist");
+                Log.d("TAG", "exist");
                 try {
                     RandomAccessFile raf = new RandomAccessFile(readFile, "rw");
                     raf.seek(raf.length());
@@ -180,9 +184,8 @@ public class MakeMemoActivity extends AppCompatActivity {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-            }
-            else{
-                File file = new File(getFilesDir(),filename);
+            } else {
+                File file = new File(getFilesDir(), filename);
                 FileOutputStream fos = null;
                 try {
                     fos = new FileOutputStream(file);
@@ -197,10 +200,9 @@ public class MakeMemoActivity extends AppCompatActivity {
             }
 
             adapter.notifyDataSetChanged();
-        }
-        else if(requestCode == MAKE_MEMO && resultCode == 102){
+        } else if (requestCode == MAKE_MEMO && resultCode == 102) {
             //memoLocation을 받지않았을 경우
-            Log.d("TAG","resultCode == 102");
+            Log.d("TAG", "resultCode == 102");
         }
 
     }
@@ -208,13 +210,15 @@ public class MakeMemoActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        Log.d("TAG","paused");
+        Log.d("TAG", "paused");
     }
 
     OnMapReadyCallback mapReadyCallback = new OnMapReadyCallback() {
         @Override
         public void onMapReady(@NonNull GoogleMap googleMap) {
             gm = googleMap;
+            checkPermission();
+            gm.setMyLocationEnabled(true);
 
             LatLng currentLoc = new LatLng(37.606320, 127.041808);
             gm.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLoc, 17));
@@ -242,7 +246,10 @@ public class MakeMemoActivity extends AppCompatActivity {
             gm.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
                 @Override
                 public void onMapClick(@NonNull LatLng latLng) {
+                    executeGeocoding(latLng);
                     String loc = String.format("위도 : %f, 경도 : %f", latLng.latitude, latLng.longitude);
+
+                    Log.d("TAG",String.valueOf(latLng));
                     select_location.setText(loc);
                     MarkerOptions options_select = new MarkerOptions();
                     options_select.position(latLng);
@@ -261,11 +268,24 @@ public class MakeMemoActivity extends AppCompatActivity {
         }
     };
 
+    private void executeGeocoding(LatLng latLng) {
+        if (Geocoder.isPresent()) {
+            Log.d("TAG",String.valueOf(latLng.latitude));
+            Toast.makeText(this, "Run Geocoder", Toast.LENGTH_SHORT).show();
+            if (latLng != null)  new GeoTask().execute(latLng);
+        } else {
+            Toast.makeText(this, "No Geocoder", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     public void onClick(View v) {
         switch (v.getId()) {
             case R.id.find_location_btn:
-                String loc = start_location.toString();
-                executeGeocoding(loc);
+                searchPlaces.clear();
+                adapter_search.notifyDataSetChanged();
+                String loc = start_location.getText().toString();
+                myAsyncTask task = new myAsyncTask();
+                task.execute(loc);
                 break;
             case R.id.current_location_btn:
                 //현재위치 표시
@@ -288,37 +308,43 @@ public class MakeMemoActivity extends AppCompatActivity {
                 break;
             case R.id.save_changes:
                 //선택한 위치들 저장하기
-
+                if(scrollView2.getVisibility() == View.VISIBLE){
+                    list_view.setVisibility(View.GONE);
+                    scrollView2.setVisibility(View.GONE);
+                    list_view_search.setVisibility(View.VISIBLE);
+                    scrollView3.setVisibility(View.VISIBLE);
+                    list_view_search.setAdapter(adapter_search);
+                }
+                else if(scrollView3.getVisibility() == View.VISIBLE){
+                    list_view_search.setVisibility(View.GONE);
+                    scrollView3.setVisibility(View.GONE);
+                    list_view.setVisibility(View.VISIBLE);
+                    scrollView2.setVisibility(View.VISIBLE);
+                    list_view.setAdapter(adapter);
+                }
                 break;
         }
     }
-    private void executeGeocoding(String address) {
-        if (Geocoder.isPresent()) {
-            Toast.makeText(this, "Run Geocoder", Toast.LENGTH_SHORT).show();
-            if (address != null)  new GeoTask().execute(address);
-        } else {
-            Toast.makeText(this, "No Geocoder", Toast.LENGTH_SHORT).show();
-        }
-    }
-    class GeoTask extends AsyncTask<String, Void, List<Address>> {
-        Geocoder geocoder = new Geocoder(MakeMemoActivity.this, Locale.getDefault());
-        @Override
-        protected List<Address> doInBackground(String... addresses) {
-            Log.d(TAG,addresses[0].toString());
-            List<Address> locations = null;
-            try {
-                locations = geocoder.getFromLocationName(addresses[0],5);
 
-            } catch (IOException e) {
-                e.printStackTrace();
+    class myAsyncTask extends AsyncTask<String, Void, String> {
+
+        @Override
+        protected String doInBackground(String... strings) {
+            ApiExamSearchBlog apiExamSearchBlog = new ApiExamSearchBlog();
+            return apiExamSearchBlog.start(strings[0]);
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+            LocationXmlParser locationXmlParser = new LocationXmlParser();
+            List<SearchPlace> searchPlaceArrayList = new ArrayList<>();
+            searchPlaceArrayList = locationXmlParser.parse(s);
+            for(SearchPlace searchPlace : searchPlaceArrayList){
+                searchPlaces.add(searchPlace.toString());
             }
-            return locations;
-        }
-
-        @Override
-        protected void onPostExecute(List<Address> addresses) {
-            Address address = addresses.get(0);
-            Toast.makeText(MakeMemoActivity.this, address.getAddressLine(0), Toast.LENGTH_SHORT ).show();
+            adapter_search.notifyDataSetChanged();
+            Log.d("TAG", String.valueOf(searchPlaceArrayList));
         }
     }
     private LocationRequest getLocationRequest() {
@@ -366,6 +392,7 @@ public class MakeMemoActivity extends AppCompatActivity {
                         options_select.snippet("메모하기");
 
                         selectMarker.setPosition(latLng);
+
                         Toast.makeText(MakeMemoActivity.this, loc, Toast.LENGTH_SHORT).show();
                     }
                 });
@@ -401,6 +428,29 @@ public class MakeMemoActivity extends AppCompatActivity {
             requestPermissions(new String[]{
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.ACCESS_FINE_LOCATION}, REQ_PERMISSION_CODE);
+        }
+    }
+    class GeoTask extends AsyncTask<LatLng, Void, List<Address>> {
+        Geocoder geocoder = new Geocoder(MakeMemoActivity.this, Locale.getDefault());
+
+        @Override
+        protected List<Address> doInBackground(LatLng... latLngs) {
+            List<Address> addresses = null;
+            try {
+                addresses = geocoder.getFromLocation(latLngs[0].latitude,
+                        latLngs[0].longitude, 1);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return addresses;
+        }
+
+        @Override
+        protected void onPostExecute(List<Address> addresses) {
+            Address address = addresses.get(0);
+            Log.d("TAG",String.valueOf(addresses.get(0)));
+            Toast.makeText(MakeMemoActivity.this, address.getAddressLine(0), Toast.LENGTH_SHORT ).show();
         }
     }
 }

@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">ma01_20200976</string>
+    <string name="client_api">03PPF4Pav58vPFpBaFPz</string>
+    <string name="client_secret">Vc2yFcYPZp</string>
 </resources>
