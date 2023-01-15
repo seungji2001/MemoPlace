@@ -8,8 +8,11 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
@@ -40,6 +43,9 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -56,6 +62,7 @@ public class MakeMemoActivity extends AppCompatActivity {
 
     final int REQ_PERMISSION_CODE = 100;
     final int MAKE_MEMO = 101;
+    LocationDBHelper dbHelper = new LocationDBHelper(MakeMemoActivity.this);
 
     public TextView today;
     public TextView select_location;
@@ -69,15 +76,17 @@ public class MakeMemoActivity extends AppCompatActivity {
     public List<String> searchPlaces;
     public ScrollView scrollView2;
     public ScrollView scrollView3;
+    public EditText title;
+
     ArrayAdapter<String> adapter;
     ArrayAdapter<String> adapter_search;
-
     FusedLocationProviderClient flpClient;
     GoogleMap gm;
+    boolean first;
     Marker centerMarker;
     Marker selectMarker;
+    Marker nMarker;
     Location mLastLocation;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -91,6 +100,7 @@ public class MakeMemoActivity extends AppCompatActivity {
         select_location = findViewById(R.id.select_location);
         scrollView2 = findViewById(R.id.scrollView2);
         scrollView3 = findViewById(R.id.scrollView3);
+        title = findViewById(R.id.title);
         checkPermission();
 
         Intent intent = getIntent();
@@ -103,38 +113,64 @@ public class MakeMemoActivity extends AppCompatActivity {
 
         locationList = new ArrayList<String>();
         //초기 locationnList 지정
-        String filename = today_str.replaceAll(" / ", "") + ".txt";
-        String path = getFilesDir().getPath() + "/" + filename;
-        File readFile = new File(path);
-        if (readFile.exists()) {
-            //해당파일이 존재하는 경우 파일을 읽어서
-            Log.d("TAG", "file exist");
-            FileReader fileReader = null;
-            try {
-                Log.d("TAG", "file exist");
-                fileReader = new FileReader(readFile);
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            }
-            BufferedReader br = new BufferedReader(fileReader);
+        SQLiteDatabase dbHelperReadableDatabase = dbHelper.getReadableDatabase();
+        String[] projection = {
+                "address",
+                "filename"
+        };
 
-            String line = "";
-            while (true) {
-                try {
-                    if (!((line = br.readLine()) != null)) break;
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                //읽어 들인 후 리스트에 넣기
-                Log.d("TAG", "line" + line);
-                locationList.add(line);
+        String selection = "create_date=?";
+        String[] selectionArgs = {today_str};
+
+        Cursor cursor = dbHelperReadableDatabase.query(
+                LocationDBHelper.TABLE_NAME,   // The table to query
+                projection,             // The array of columns to return (pass null to get all)
+                selection,              // The columns for the WHERE clause
+                selectionArgs,          // The values for the WHERE clause
+                null,                   // don't group the rows
+                null,                   // don't filterby row groups
+                null               // The sort order
+        );
+            String address = null;
+            String filename = null;
+            if(cursor.moveToNext()){
+                address = cursor.getString(0);
+                filename = cursor.getString(1);
+                locationList.add(address + " " + filename);
+                cursor.close();
             }
-            try {
-                br.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+//        String filename = today_str.replaceAll(" / ", "") + ".txt";
+//        String path = getFilesDir().getPath() + "/" + filename;
+//        File readFile = new File(path);
+//        if (readFile.exists()) {
+//            //해당파일이 존재하는 경우 파일을 읽어서
+//            Log.d("TAG", "file exist");
+//            FileReader fileReader = null;
+//            try {
+//                Log.d("TAG", "file exist");
+//                fileReader = new FileReader(readFile);
+//            } catch (FileNotFoundException e) {
+//                e.printStackTrace();
+//            }
+//            BufferedReader br = new BufferedReader(fileReader);
+//
+//            String line = "";
+//            while (true) {
+//                try {
+//                    if (!((line = br.readLine()) != null)) break;
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//                //읽어 들인 후 리스트에 넣기
+//                Log.d("TAG", "line" + line);
+//                locationList.add(line);
+//            }
+//            try {
+//                br.close();
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
 
         searchPlaces = new ArrayList<>();
         adapter_search = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, searchPlaces);
@@ -143,6 +179,7 @@ public class MakeMemoActivity extends AppCompatActivity {
         list_view.setAdapter(adapter);
         scrollView3.setVisibility(View.GONE);
         list_view_search.setVisibility(View.GONE);
+        //작업
         list_view.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
@@ -150,11 +187,76 @@ public class MakeMemoActivity extends AppCompatActivity {
                 Log.d("TAG", String.valueOf(position));
                 Log.d("TAG", String.valueOf(id));
 
-                String loc = (String) parent.getAdapter().getItem(position);
+                //r
+                String cFile = (String) parent.getAdapter().getItem(position);
+                Log.d("TAG",cFile);
+                SQLiteDatabase dbHelperReadableDatabase = dbHelper.getReadableDatabase();
+                String[] projection = {
+                        "address",
+                        "latitude",
+                        "longitude"
+                };
+
+                String selection = "filename=?";
+                String[] selectionArgs = {cFile};
+
+                Cursor cursor = dbHelperReadableDatabase.query(
+                        LocationDBHelper.TABLE_NAME,   // The table to query
+                        projection,             // The array of columns to return (pass null to get all)
+                        selection,              // The columns for the WHERE clause
+                        selectionArgs,          // The values for the WHERE clause
+                        null,                   // don't group the rows
+                        null,                   // don't filterby row groups
+                        null               // The sort order
+                );
+                String address = null;
+                String latitude = null;
+                String longitude = null;
+                if(cursor.moveToNext()){
+                    address = cursor.getString(0);
+                    latitude = cursor.getString(1);
+                    longitude = cursor.getString(2);
+                    cursor.close();
+                }
+
                 Intent intent = new Intent(getApplicationContext(), DetailMemoActivity.class);
                 intent.putExtra("today", today_str);
-                intent.putExtra("select_location", loc);
+                intent.putExtra("str_location",address);
+                intent.putExtra("filename",cFile);
+                intent.putExtra("select_location", latitude + " " + longitude);
                 startActivityForResult(intent, MAKE_MEMO);
+            }
+        });
+
+        //선택시
+        list_view_search.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Log.d("TAG","select");
+
+                String address = (String) parent.getAdapter().getItem(position);
+
+                String cFile = today_str.replaceAll("/","") + "_" + title.getText().toString() + ".txt";
+                SQLiteDatabase dbHelperWritableDatabase = dbHelper.getWritableDatabase();
+
+// Create a new map of values, where column names are the keys
+                ContentValues values = new ContentValues();
+                values.put("address",address);
+                values.put("filename", cFile);
+// Insert the new row, returning the primary key value of the new row
+                long newRowId = dbHelperWritableDatabase.insert(LocationDBHelper.TABLE_NAME, null, values);
+
+//                GeoApi geoApi = new GeoApi();
+//                geoApi.execute(address);
+
+                String latlng = select_location.getText().toString();
+                Log.d("TAG",latlng);
+                Intent intent = new Intent(getApplicationContext(),DetailMemoActivity.class);
+                intent.putExtra("today",today_str);
+                intent.putExtra("select_location",latlng);
+                intent.putExtra("str_location",address);
+                intent.putExtra("filename",cFile);
+                startActivityForResult(intent,MAKE_MEMO);
             }
         });
     }
@@ -165,7 +267,6 @@ public class MakeMemoActivity extends AppCompatActivity {
         if (requestCode == MAKE_MEMO && resultCode == 103) {
             //memoLocation을 받았을 경우
             String memoLocation = data.getStringExtra("memoLocation");
-            Log.d("TAG", "clicked" + memoLocation);
             locationList.add(memoLocation);
 
             //파일에도 추가된 내용 추가하기
@@ -213,6 +314,7 @@ public class MakeMemoActivity extends AppCompatActivity {
         Log.d("TAG", "paused");
     }
 
+    //첫 지도
     OnMapReadyCallback mapReadyCallback = new OnMapReadyCallback() {
         @Override
         public void onMapReady(@NonNull GoogleMap googleMap) {
@@ -236,9 +338,29 @@ public class MakeMemoActivity extends AppCompatActivity {
                 public void onInfoWindowClick(@NonNull Marker marker) {
                     Toast.makeText(MakeMemoActivity.this, "마카" + marker.getId(), Toast.LENGTH_SHORT).show();
                     Log.d(TAG, String.valueOf(marker.getPosition()));
+                    String str = select_location.getText().toString();
+                    String filename=today_str.replaceAll("/","") + "_" + title.getText().toString() + ".txt";
+                    //메모 선택시 데이터베이스에 저장
+                    //날짜 데이터베이스에 넣기
+                    SQLiteDatabase dbHelperWritableDatabase = dbHelper.getWritableDatabase();
+
+// Create a new map of values, where column names are the keys
+                    ContentValues values = new ContentValues();
+                    values.put("create_date", today_str);
+                    values.put("address",str);
+                    values.put("latitude",marker.getPosition().latitude);
+                    values.put("longitude",marker.getPosition().longitude);
+                    values.put("filename",filename);
+
+// Insert the new row, returning the primary key value of the new row
+                    long newRowId = dbHelperWritableDatabase.insert(LocationDBHelper.TABLE_NAME, null, values);
+                    Toast myToast = Toast.makeText(getApplicationContext(),"location table 추가", Toast.LENGTH_SHORT);
+                    myToast.show();
                     Intent intent = new Intent(getApplicationContext(),DetailMemoActivity.class);
                     intent.putExtra("today",today_str);
                     intent.putExtra("select_location",String.valueOf(marker.getPosition()));
+                    intent.putExtra("str_location",str);
+                    intent.putExtra("filename",filename);
                     startActivityForResult(intent, MAKE_MEMO);
                 }
             });
@@ -246,11 +368,11 @@ public class MakeMemoActivity extends AppCompatActivity {
             gm.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
                 @Override
                 public void onMapClick(@NonNull LatLng latLng) {
-                    executeGeocoding(latLng);
-                    String loc = String.format("위도 : %f, 경도 : %f", latLng.latitude, latLng.longitude);
+                    String loc = String.format("%f,%f", latLng.longitude,  latLng.latitude);
+                    ReverseGeoApi reverseGeoApi = new ReverseGeoApi();
+                    reverseGeoApi.execute(loc);
 
                     Log.d("TAG",String.valueOf(latLng));
-                    select_location.setText(loc);
                     MarkerOptions options_select = new MarkerOptions();
                     options_select.position(latLng);
                     options_select.icon(BitmapDescriptorFactory.defaultMarker());
@@ -268,6 +390,86 @@ public class MakeMemoActivity extends AppCompatActivity {
         }
     };
 
+    //작업
+    class GeoApi extends AsyncTask<String, Void, String> {
+
+        @Override
+        protected String doInBackground(String... strings) {
+            ApiGeocoding apiGeocoding = new ApiGeocoding();
+            return apiGeocoding.start(strings[0]);
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+            select_location.setText(s);
+            JsonParser parser = new JsonParser();
+            JsonObject jsonObject1;
+            JsonObject jsonObject2;
+            JsonArray jsonArray;
+            String x="";
+            String y="";
+            Double x_double;
+            Double y_double;
+            jsonObject1 = (JsonObject) parser.parse(s);
+            jsonArray = (JsonArray)jsonObject1.get("addresses");
+            for(int i=0; i<jsonArray.size(); i++) {
+                jsonObject2 = (JsonObject) jsonArray.get(i);
+                if (null != jsonObject2.get("x")) {
+                    x = jsonObject2.get("x").toString();
+                }
+                if (null != jsonObject2.get("y")) {
+                    y = (String) jsonObject2.get("y").toString();
+                }
+                Log.d("TAG", x + ", " + y);
+            }
+            Log.d("TAG",x);
+            String ansx =  x.substring(1,(x.length()-1));
+            String ansy =  y.substring(1,(y.length()-1));
+            Log.d("TAG",ansx);
+            x_double = Double.valueOf(ansx);
+            y_double = Double.valueOf(ansy);
+            Log.d("TAG",String.valueOf(x_double));
+            LatLng nLatLng = new LatLng(y_double,x_double);
+
+            SQLiteDatabase dbHelperWritableDatabase = dbHelper.getWritableDatabase();
+
+// Create a new map of values, where column names are the keys
+            ContentValues values = new ContentValues();
+            values.put("longitude", ansx);
+            values.put("latitude", ansy);
+
+            String whereClause="filename=?";
+            String[] whereArgs = new String[]{title.getText().toString()};
+
+// Insert the new row, returning the primary key value of the new row
+            dbHelperWritableDatabase.update(LocationDBHelper.TABLE_NAME, values, whereClause, whereArgs);
+        }
+
+        @Override
+        protected void onCancelled() {
+            super.onCancelled();
+        }
+    }
+
+    class ReverseGeoApi extends AsyncTask<String, Void, String> {
+
+        @Override
+        protected String doInBackground(String... strings) {
+            ApiReverseGeocoding apiReverseGeocoding = new ApiReverseGeocoding();
+            return apiReverseGeocoding.start(strings[0]);
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+            GeocoderXmlParser geocoderXmlParser = new GeocoderXmlParser();
+            ArrayList<String> geoList = geocoderXmlParser.parse(s);
+            select_location.setText(geoList.get(0));
+            Log.d("TAG", String.valueOf(geoList));
+        }
+    }
+
     private void executeGeocoding(LatLng latLng) {
         if (Geocoder.isPresent()) {
             Log.d("TAG",String.valueOf(latLng.latitude));
@@ -280,12 +482,23 @@ public class MakeMemoActivity extends AppCompatActivity {
 
     public void onClick(View v) {
         switch (v.getId()) {
+            //찾기
             case R.id.find_location_btn:
                 searchPlaces.clear();
                 adapter_search.notifyDataSetChanged();
                 String loc = start_location.getText().toString();
                 myAsyncTask task = new myAsyncTask();
                 task.execute(loc);
+
+//                if(nLatLng!=null){
+//                    Log.d("TAG",nLatLng.toString());
+//                }
+                list_view.setVisibility(View.GONE);
+                scrollView2.setVisibility(View.GONE);
+                list_view_search.setVisibility(View.VISIBLE);
+                scrollView3.setVisibility(View.VISIBLE);
+                list_view_search.setAdapter(adapter_search);
+
                 break;
             case R.id.current_location_btn:
                 //현재위치 표시
@@ -334,14 +547,16 @@ public class MakeMemoActivity extends AppCompatActivity {
             return apiExamSearchBlog.start(strings[0]);
         }
 
+        //찾기 결과
         @Override
         protected void onPostExecute(String s) {
             super.onPostExecute(s);
             LocationXmlParser locationXmlParser = new LocationXmlParser();
             List<SearchPlace> searchPlaceArrayList = new ArrayList<>();
             searchPlaceArrayList = locationXmlParser.parse(s);
+
             for(SearchPlace searchPlace : searchPlaceArrayList){
-                searchPlaces.add(searchPlace.toString());
+                searchPlaces.add(searchPlace.getAddress());
             }
             adapter_search.notifyDataSetChanged();
             Log.d("TAG", String.valueOf(searchPlaceArrayList));

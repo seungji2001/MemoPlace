@@ -42,7 +42,7 @@
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyBe41HQ6eHIRNuG8nFo0f0irtiCwE2f2Vw" />
+            android:value="" />
 
         <activity
             android:name=".MakeMemoActivity"

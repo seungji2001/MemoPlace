@@ -47,6 +47,12 @@
         android:layout_width="match_parent"
         android:layout_height="3dp" />
     <EditText
+        android:id="@+id/title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="put title"
+        android:textAlignment="center"/>
+    <EditText
         android:layout_weight="1"
         android:id="@+id/write_memo"
         android:layout_width="match_parent"

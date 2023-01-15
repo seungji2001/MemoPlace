@@ -1,5 +1,7 @@
 package ddwu.mobile.finalproject;
 
+import android.util.Log;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,27 +14,24 @@ import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ApiExamSearchBlog {
-    public String start(String name) {
+public class ApiGeocoding {
+    public String start(String loc) {
         String clientId = ""; //애플리케이션 클라이언트 아이디
         String clientSecret = ""; //애플리케이션 클라이언트 시크릿
 
-
         String text = null;
         try {
-            text = URLEncoder.encode(name, "UTF-8");
+            text = URLEncoder.encode(loc, "UTF-8");
         } catch (UnsupportedEncodingException e) {
             throw new RuntimeException("검색어 인코딩 실패",e);
         }
-
-
 //        String apiURL = "https://openapi.naver.com/v1/search/local?query=" + text;    // JSON 결과
-        String apiURL = "https://openapi.naver.com/v1/search/local.xml?query="+ text + "&display=3&start=3"; // XML 결과
+        String apiURL = "https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode?query="+ text; // XML 결과
 
 
         Map<String, String> requestHeaders = new HashMap<>();
-        requestHeaders.put("X-Naver-Client-Id", clientId);
-        requestHeaders.put("X-Naver-Client-Secret", clientSecret);
+        requestHeaders.put("X-NCP-APIGW-API-KEY-ID", clientId);
+        requestHeaders.put("X-NCP-APIGW-API-KEY", clientSecret);
         String responseBody = get(apiURL,requestHeaders);
         return responseBody;
     }
@@ -92,6 +91,4 @@ public class ApiExamSearchBlog {
             throw new RuntimeException("API 응답을 읽는 데 실패했습니다.", e);
         }
     }
-
 }
-

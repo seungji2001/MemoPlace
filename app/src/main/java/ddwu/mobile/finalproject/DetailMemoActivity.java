@@ -8,6 +8,9 @@ import androidx.core.content.FileProvider;
 
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -20,6 +23,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -47,13 +51,15 @@ public class DetailMemoActivity extends AppCompatActivity {
     String location;
     String today;
     String filename;
-
+    String str;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_detail_memo);
+        LocationDBHelper dbHelper = new LocationDBHelper(DetailMemoActivity.this);
         Log.d("TAG","start");
 
+        //뷰 바인딩
         selected_location = findViewById(R.id.selected_location);
         show_today = findViewById(R.id.today);
         write_memo = findViewById(R.id.write_memo);
@@ -62,15 +68,15 @@ public class DetailMemoActivity extends AppCompatActivity {
         Intent intent = getIntent();
         today = intent.getExtras().getString("today");
         location = intent.getExtras().getString("select_location");
+        str = intent.getExtras().getString("str_location");
+        filename = intent.getExtras().getString("filename");
 
-        selected_location.setText(location);
+        selected_location.setText(str);
         show_today.setText(today);
-
     }
 
     //저장된 글 불러와서 보여주기
     public void showDetail(){
-        filename = today.replaceAll(" / ","") + location.replaceAll("[^0-9]","") + ".txt";;
         String path = getFilesDir().getPath() + "/" + filename;
         Log.d("TAG","resume path" + path);
         File readFile  = new File(path);
@@ -109,8 +115,7 @@ public class DetailMemoActivity extends AppCompatActivity {
         showDetail();
 
         //저장된 이미지 파일 존재시 그것으로 화면에 보여주기
-        filename = today.replaceAll(" / ","") + location.replaceAll("[^0-9]","");
-        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+       File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
         String filepath = storageDir + "/" + filename + ".jpg";
         File file = new File(filepath);
         if(file.exists()){
@@ -133,7 +138,8 @@ public class DetailMemoActivity extends AppCompatActivity {
                 makeFile();
                 Intent intent = new Intent(DetailMemoActivity.this,MakeMemoActivity.class);
                 if(first_start) {
-                    intent.putExtra("memoLocation", location);
+                    //처음 만든 파일이라면, address 보내준다
+                    intent.putExtra("memoLocation", filename);
                     setResult(103,intent);
                 }
                 else {
@@ -169,8 +175,6 @@ public class DetailMemoActivity extends AppCompatActivity {
 
     private File createImageFile() throws IOException {
         // Create an image file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        filename = today.replaceAll(" / ","") + location.replaceAll("[^0-9]","");
         File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
         String filepath = storageDir + "/" + filename + ".jpg";
         File image = new File(filepath);
@@ -213,10 +217,37 @@ public class DetailMemoActivity extends AppCompatActivity {
         camera_image.setImageBitmap(bitmap);
     }
 
+    public String getFilenameByCreateDate(){
+        SQLiteOpenHelper LocationDBHelper = new LocationDBHelper(getApplicationContext());
+        SQLiteDatabase dbHelperReadableDatabase = LocationDBHelper.getReadableDatabase();
+
+        String[] projection = {
+                "filename"
+        };
+
+        String selection = "create_date=?";
+        String[] selectionArgs = {today};
+
+        Cursor cursor = dbHelperReadableDatabase.query(
+                ((ddwu.mobile.finalproject.LocationDBHelper) LocationDBHelper).TABLE_NAME,   // The table to query
+                projection,             // The array of columns to return (pass null to get all)
+                selection,              // The columns for the WHERE clause
+                selectionArgs,          // The values for the WHERE clause
+                null,                   // don't group the rows
+                null,                   // don't filterby row groups
+                null               // The sort order
+        );
+        String filename = null;
+        if(cursor.moveToNext()){
+            filename = cursor.getString(0);
+            cursor.close();
+        }
+        return filename;
+    }
+
     public void makeFile() throws IOException {
 
-        filename = today.replaceAll(" / ","") + location.replaceAll("[^0-9]","") + ".txt";
-
+        //생성된 파일 명
         File file = new File(getFilesDir(),filename);
         if(!file.exists()){
             first_start = true;
